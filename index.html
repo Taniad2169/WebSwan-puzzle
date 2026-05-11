@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>🔍 What's the First Word You See? — Boogie Hair Game</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(145deg, #1dbcd1 0%, #a0d7de 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+            padding: 20px;
+        }
+        .game-container {
+            max-width: 1000px;
+            width: 100%;
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 48px;
+            padding: 30px 24px;
+            border: 1px solid rgba(255,255,255,0.3);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+        }
+        .game-header { text-align: center; margin-bottom: 30px; }
+        .game-header h1 {
+            font-family: 'Georgia', serif;
+            font-size: clamp(1.8rem, 6vw, 2.5rem);
+            color: #ffffff;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        .game-header p { color: rgba(255,255,255,0.95); font-size: clamp(0.9rem,3vw,1rem); }
+
+        /* Progress */
+        .progress-container {
+            background: rgba(0,0,0,0.2);
+            border-radius: 30px;
+            padding: 15px 20px;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        .progress-card { text-align: center; flex: 1; min-width: 80px; }
+        .progress-number { font-size: 2.5rem; font-weight: 900; color: #ffffff; line-height: 1; }
+        .progress-label { font-size: 0.7rem; color: rgba(255,255,255,0.9); text-transform: uppercase; letter-spacing: 1px; }
+        .progress-divider { color: rgba(255,255,255,0.5); font-size: 1.5rem; }
+        .congrats-message {
+            background: #ffffff; color: #1dbcd1;
+            padding: 10px 20px; border-radius: 40px;
+            font-weight: bold; font-size: 0.9rem;
+            animation: pulse 0.5s ease infinite;
+        }
+        @keyframes pulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.05);} }
+
+        /* Hints */
+        .word-hints { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 25px; }
+        .hint-tag {
+            background: rgba(0,0,0,0.25);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 30px;
+            padding: 6px 14px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #ffffff;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .hint-tag:hover { background: rgba(255,255,255,0.25); transform: scale(1.02); }
+        .hint-tag.found-hint {
+            background: rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.5);
+            text-decoration: line-through;
+            text-decoration-thickness: 2px;
+            cursor: default;
+        }
+        .hint-tag.found-hint:hover { transform: none; }
+
+        /* Grid */
+        .word-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 6px;
+            margin-bottom: 30px;
+            background: rgba(0,0,0,0.15);
+            padding: 20px;
+            border-radius: 28px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .grid-letter {
+            aspect-ratio: 1/1;
+            background: rgba(255,255,255,0.2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: clamp(0.9rem,3vw,1.2rem);
+            font-weight: 800;
+            font-family: 'Courier New', monospace;
+            color: #ffffff;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        .grid-letter:hover { transform: scale(1.05); background: rgba(255,255,255,0.4); }
+        .grid-letter.selected-start {
+            background: #FFD700 !important;
+            color: #1dbcd1 !important;
+            border: 2px solid #ffffff !important;
+            box-shadow: 0 0 16px rgba(255,215,0,0.9);
+            transform: scale(1.15);
+        }
+
+        /* ✅ FOUND — stays permanently highlighted green */
+        .grid-letter.found {
+            background: #00c853 !important;
+            color: #ffffff !important;
+            border-color: #00c853 !important;
+            box-shadow: 0 0 12px rgba(0,200,83,0.6);
+            transform: scale(1.05);
+        }
+
+        /* Temp highlight while searching */
+        .grid-letter.temp-highlight {
+            background: rgba(255,255,0,0.7) !important;
+            color: #1dbcd1 !important;
+            transform: scale(1.08);
+            box-shadow: 0 0 20px rgba(255,255,0,0.8);
+        }
+
+        /* Input */
+        .input-section { text-align: center; margin-bottom: 30px; }
+        .input-section label { display: block; color: #ffffff; font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; }
+        .word-input-wrapper { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+        #userWord {
+            flex: 1; max-width: 320px;
+            padding: 14px 20px;
+            font-size: 1rem;
+            border: 2px solid rgba(255,255,255,0.5);
+            border-radius: 50px;
+            background: rgba(255,255,255,0.95);
+            color: #1dbcd1;
+            text-align: center;
+            font-weight: 600;
+        }
+        #userWord:focus { outline: none; border-color: #ffffff; background: #ffffff; box-shadow: 0 0 15px rgba(255,255,255,0.5); }
+        #userWord::placeholder { color: #a0d7de; font-weight: normal; }
+        .submit-btn {
+            padding: 14px 32px;
+            background: #ffffff;
+            border: none; border-radius: 50px;
+            font-weight: 700; font-size: 1rem;
+            color: #1dbcd1; cursor: pointer;
+            transition: all 0.3s;
+        }
+        .submit-btn:hover { transform: translateY(-2px); background: #a0d7de; color: #ffffff; box-shadow: 0 8px 25px rgba(0,0,0,0.15); }
+
+        /* Results */
+        .results-area { background: rgba(0,0,0,0.15); border-radius: 24px; padding: 20px; text-align: center; }
+        .submission-message { color: #ffffff; font-size: 0.95rem; margin-bottom: 15px; font-weight: 500; min-height: 50px; transition: opacity 0.3s; }
+        .word-cloud { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 10px; max-height: 200px; overflow-y: auto; padding: 10px; }
+        .word-tag {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 40px;
+            padding: 8px 18px;
+            font-size: 0.9rem; font-weight: 500;
+            color: #ffffff; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .word-tag:hover { background: rgba(255,255,255,0.4); transform: scale(1.02); }
+        .reset-btn {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.5);
+            color: #ffffff;
+            padding: 10px 20px; border-radius: 40px;
+            cursor: pointer; margin-top: 15px;
+            font-size: 0.85rem; transition: all 0.2s;
+        }
+        .reset-btn:hover { background: rgba(255,255,255,0.2); border-color: #ffffff; }
+
+        @media(max-width:700px){
+            .game-container { padding: 20px 16px; }
+            .word-grid { gap: 4px; padding: 12px; }
+            .grid-letter { font-size: 0.7rem; border-radius: 8px; }
+            .word-input-wrapper { flex-direction: column; align-items: center; }
+            #userWord { max-width: 100%; width: 100%; }
+            .submit-btn { width: 100%; }
+            .progress-number { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <div class="game-header">
+        <h1>🔍 What's the First Word You See?</h1>
+        <p>Stare at the letters below. Find hidden words and type them!</p>
+        <p style="font-size:0.8rem;margin-top:8px;opacity:0.9;">✨ Found words stay highlighted GREEN permanently! ✨</p>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-container">
+        <div class="progress-card">
+            <div class="progress-number" id="totalHiddenWords">12</div>
+            <div class="progress-label">Total Hidden Words</div>
+        </div>
+        <div class="progress-divider">➡️</div>
+        <div class="progress-card">
+            <div class="progress-number" id="foundWordsCount">0</div>
+            <div class="progress-label">Words Found</div>
+        </div>
+        <div class="progress-divider">➡️</div>
+        <div class="progress-card">
+            <div class="progress-number" id="remainingWordsCount">12</div>
+            <div class="progress-label">Remaining</div>
+        </div>
+        <div class="congrats-message" id="congratsMsg" style="display:none;">🎉 YOU FOUND THEM ALL! 🎉</div>
+    </div>
+
+    <!-- Word Hints -->
+    <div class="word-hints" id="wordHints">
+        <span class="hint-tag" data-word="confident">🔍 CONFIDENT</span>
+        <span class="hint-tag" data-word="joy">🌟 JOY</span>
+        <span class="hint-tag" data-word="brave">💪 BRAVE</span>
+        <span class="hint-tag" data-word="love">❤️ LOVE</span>
+        <span class="hint-tag" data-word="power">✨ POWER</span>
+        <span class="hint-tag" data-word="kind">🌸 KIND</span>
+        <span class="hint-tag" data-word="success">🎯 SUCCESS</span>
+        <span class="hint-tag" data-word="grateful">🙏 GRATEFUL</span>
+        <span class="hint-tag" data-word="abundant">💎 ABUNDANT</span>
+        <span class="hint-tag" data-word="peace">🕊️ PEACE</span>
+        <span class="hint-tag" data-word="wisdom">📖 WISDOM</span>
+        <span class="hint-tag" data-word="happy">😊 HAPPY</span>
+    </div>
+
+    <!-- Letter Grid -->
+    <div class="word-grid" id="letterGrid"></div>
+
+    <div class="input-section">
+        <label id="inputLabel">👆 Click the FIRST letter of your word on the grid, then type it below:</label>
+        <div class="word-input-wrapper">
+            <input type="text" id="userWord" placeholder="Click a letter first, then type your word..." autocomplete="off" disabled>
+            <button class="submit-btn" id="submitWord">✨ Find My Word ✨</button>
+        </div>
+    </div>
+
+    <div class="results-area">
+        <div class="submission-message" id="submissionMsg"></div>
+        <div style="text-align:left;margin-bottom:8px;">
+            <span style="color:rgba(255,255,255,0.8);font-size:0.7rem;">✨ Words found (click to highlight):</span>
+        </div>
+        <div class="word-cloud" id="wordCloud"></div>
+        <button class="reset-btn" id="resetGameBtn">⟳ Reset Game & Start Over</button>
+    </div>
+</div>
+
+<script>
+// ===== GRID DATA =====
+const gridData = [
+    ['C','O','N','F','I','D','E','N','T','X','Q','M'],
+    ['R','A','B','U','N','D','A','N','T','W','E','P'],
+    ['E','F','S','U','C','C','E','S','S','R','L','E'],
+    ['A','T','J','O','Y','K','L','W','H','O','O','A'],
+    ['T','E','B','R','A','V','E','N','P','V','V','C'],
+    ['I','Y','S','G','R','A','T','E','F','U','L','E'],
+    ['V','U','L','O','V','E','Q','F','D','C','K','Z'],
+    ['E','W','K','I','N','D','X','G','P','O','W','N'],
+    ['P','O','W','E','R','V','B','R','A','V','E','D'],
+    ['S','U','C','C','E','S','S','J','O','Y','U','X'],
+    ['H','A','P','P','Y','N','C','O','N','F','I','D'],
+    ['W','I','S','D','O','M','T','R','U','S','T','K']
+];
+
+// ✅ 12 hidden words (removed TRUST — now 12 total)
+const ALL_HIDDEN_WORDS = [
+    'confident','joy','brave','love','power','kind',
+    'success','grateful','abundant','peace','wisdom','happy'
+];
+
+const TOTAL = ALL_HIDDEN_WORDS.length; // 12
+
+let foundWords = [];
+let submittedWords = [];
+let gridCells = [];
+let selectedStartCell = null; // ✅ tracks the clicked first letter
+
+// ── Render grid ──
+function renderGrid() {
+    const gc = document.getElementById('letterGrid');
+    gc.innerHTML = '';
+    gridCells = [];
+    for (let r = 0; r < gridData.length; r++) {
+        for (let c = 0; c < gridData[r].length; c++) {
+            const cell = document.createElement('div');
+            cell.className = 'grid-letter';
+            cell.textContent = gridData[r][c];
+            cell.dataset.row = r;
+            cell.dataset.col = c;
+            gc.appendChild(cell);
+            gridCells.push(cell);
+        }
+    }
+}
+
+// ── Find word positions (horizontal + vertical) ──
+function findWordPositions(word) {
+    const W = word.toUpperCase();
+    const positions = [];
+
+    // Horizontal
+    for (let r = 0; r < gridData.length; r++) {
+        for (let c = 0; c <= gridData[r].length - W.length; c++) {
+            let match = true;
+            for (let k = 0; k < W.length; k++) {
+                if (gridData[r][c+k] !== W[k]) { match = false; break; }
+            }
+            if (match) for (let k = 0; k < W.length; k++) positions.push({row:r, col:c+k});
+        }
+    }
+
+    // Vertical
+    for (let c = 0; c < gridData[0].length; c++) {
+        for (let r = 0; r <= gridData.length - W.length; r++) {
+            let match = true;
+            for (let k = 0; k < W.length; k++) {
+                if (gridData[r+k][c] !== W[k]) { match = false; break; }
+            }
+            if (match) for (let k = 0; k < W.length; k++) positions.push({row:r+k, col:c});
+        }
+    }
+
+    return positions;
+}
+
+// ── ✅ PERMANENTLY highlight found word in GREEN ──
+function markFoundPermanent(word) {
+    const lw = word.toLowerCase();
+    if (foundWords.includes(lw)) return false;
+    foundWords.push(lw);
+
+    const positions = findWordPositions(word);
+    positions.forEach(p => {
+        const idx = p.row * gridData[0].length + p.col;
+        if (gridCells[idx]) {
+            gridCells[idx].classList.remove('temp-highlight');
+            gridCells[idx].classList.add('found');
+        }
+    });
+
+    // Cross out hint tag
+    document.querySelectorAll('.hint-tag').forEach(tag => {
+        if (tag.getAttribute('data-word') === lw) {
+            tag.classList.add('found-hint');
+        }
+    });
+
+    updateProgress();
+    return true;
+}
+
+// ── Temp highlight (yellow flash) ──
+function highlightTemp(word) {
+    // Only clear temp highlights — NEVER touch found cells
+    gridCells.forEach(cell => {
+        if (!cell.classList.contains('found')) {
+            cell.classList.remove('temp-highlight');
+        }
+    });
+    const positions = findWordPositions(word);
+    positions.forEach(p => {
+        const idx = p.row * gridData[0].length + p.col;
+        // NEVER add temp highlight to already-found cells
+        if (gridCells[idx] && !gridCells[idx].classList.contains('found')) {
+            gridCells[idx].classList.add('temp-highlight');
+        }
+    });
+    setTimeout(() => {
+        positions.forEach(p => {
+            const idx = p.row * gridData[0].length + p.col;
+            // ONLY remove temp-highlight — never touch found class
+            if (gridCells[idx] && !gridCells[idx].classList.contains('found')) {
+                gridCells[idx].classList.remove('temp-highlight');
+            }
+        });
+    }, 2500);
+    return positions.length > 0;
+}
+
+// ── Update progress counter ──
+function updateProgress() {
+    const found = foundWords.length;
+    const remaining = TOTAL - found;
+    document.getElementById('foundWordsCount').textContent = found;
+    document.getElementById('remainingWordsCount').textContent = remaining;
+    document.getElementById('totalHiddenWords').textContent = TOTAL - found === 0 ? TOTAL : TOTAL;
+
+    if (remaining === 0) {
+        document.getElementById('congratsMsg').style.display = 'inline-block';
+        showMsg('🎉 AMAZING! You found ALL ' + TOTAL + ' hidden words! 🎉');
+    } else {
+        document.getElementById('congratsMsg').style.display = 'none';
+    }
+}
+
+// ── Show message ──
+function showMsg(msg) {
+    const el = document.getElementById('submissionMsg');
+    el.textContent = msg;
+    el.style.opacity = '1';
+    setTimeout(() => {
+        el.style.opacity = '0';
+        setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 300);
+    }, 3500);
+}
+
+// ── Save / Load ──
+function saveData() {
+    try {
+        localStorage.setItem('boogie_found_v3', JSON.stringify(foundWords));
+        localStorage.setItem('boogie_submitted_v3', JSON.stringify(submittedWords));
+    } catch(e) {}
+}
+
+function loadData() {
+    try {
+        const f = localStorage.getItem('boogie_found_v3');
+        const s = localStorage.getItem('boogie_submitted_v3');
+        foundWords = f ? JSON.parse(f) : [];
+        submittedWords = s ? JSON.parse(s) : [];
+    } catch(e) {
+        foundWords = []; submittedWords = [];
+    }
+
+    // Re-apply permanent green highlights
+    foundWords.forEach(word => {
+        const positions = findWordPositions(word);
+        positions.forEach(p => {
+            const idx = p.row * gridData[0].length + p.col;
+            if (gridCells[idx]) gridCells[idx].classList.add('found');
+        });
+        document.querySelectorAll('.hint-tag').forEach(tag => {
+            if (tag.getAttribute('data-word') === word) tag.classList.add('found-hint');
+        });
+    });
+
+    updateDisplay();
+    updateProgress();
+}
+
+// ── Word cloud display ──
+function updateDisplay() {
+    const freq = {};
+    submittedWords.forEach(w => { freq[w] = (freq[w]||0)+1; });
+    const sorted = Object.entries(freq).sort((a,b) => b[1]-a[1]);
+    const wc = document.getElementById('wordCloud');
+    wc.innerHTML = '';
+
+    if (sorted.length === 0) {
+        wc.innerHTML = '<span style="color:rgba(255,255,255,0.6);">✨ No words yet — be the first! ✨</span>';
+        return;
+    }
+
+    sorted.forEach(([word, count]) => {
+        const tag = document.createElement('div');
+        tag.className = 'word-tag';
+        tag.innerHTML = `${word} <span style="opacity:0.6;font-size:0.7rem;">(${count})</span>`;
+        tag.addEventListener('click', () => {
+            if (foundWords.includes(word)) {
+                showMsg('✅ "' + word + '" is already highlighted in green!');
+            } else {
+                highlightTemp(word);
+                showMsg('🔍 "' + word + '" highlighted! Type it to mark as found!');
+            }
+        });
+        wc.appendChild(tag);
+    });
+}
+
+// ── Add word handler ──
+function addWord(word) {
+    if (!word || word.trim() === '') { showMsg('💕 Please enter a word first!'); return; }
+    const clean = word.trim().toLowerCase();
+    if (clean.length < 2) { showMsg('✨ Please enter at least 2 letters!'); return; }
+
+    // Safety check - ensure grid is ready
+    if (gridCells.length === 0) {
+        showMsg('⏳ Game is loading, please try again!');
+        return;
+    }
+
+    // ✅ Must click first letter before typing
+    if (!selectedStartCell) {
+        showMsg('👆 Please click the FIRST letter of your word on the grid first!');
+        return;
+    }
+
+    // ✅ Validate first letter matches selected cell
+    const clickedLetter = selectedStartCell.textContent.toLowerCase();
+    if (clean[0] !== clickedLetter) {
+        showMsg('⚠️ Your word must start with "' + clickedLetter.toUpperCase() + '" — the letter you clicked!');
+        return;
+    }
+
+    const positions = findWordPositions(clean);
+    const inGrid = positions.length > 0;
+    if (!inGrid) {
+        showMsg('🔍 "' + clean + '" not found in the grid. Keep looking!');
+        return;
+    }
+
+    const isHidden = ALL_HIDDEN_WORDS.includes(clean);
+    const alreadyFound = foundWords.includes(clean);
+
+    if (isHidden && !alreadyFound) {
+        // ✅ NEW word found — apply GREEN immediately, no temp highlight
+        foundWords.push(clean);
+        positions.forEach(p => {
+            const idx = p.row * gridData[0].length + p.col;
+            if (gridCells[idx]) {
+                // Remove any temp highlight first, then add permanent green
+                gridCells[idx].classList.remove('temp-highlight');
+                gridCells[idx].classList.add('found');
+            }
+        });
+        // Cross out hint tag
+        document.querySelectorAll('.hint-tag').forEach(tag => {
+            if (tag.getAttribute('data-word') === clean) tag.classList.add('found-hint');
+        });
+        updateProgress();
+        saveData();
+        showMsg('✅ "' + clean.toUpperCase() + '" FOUND! Highlighted GREEN permanently! ' + foundWords.length + '/' + TOTAL + ' words!');
+        // Reset field
+        const inp = document.getElementById('userWord');
+        inp.value = ''; inp.disabled = true;
+        inp.placeholder = 'Click a letter first, then type your word...';
+        document.getElementById('inputLabel').textContent = '👆 Click the FIRST letter of your word on the grid, then type it below:';
+        gridCells.forEach(c => c.classList.remove('selected-start'));
+        selectedStartCell = null;
+        return; // ← EXIT immediately
+    } else if (isHidden && alreadyFound) {
+        showMsg('✨ "' + clean + '" was already found! (' + foundWords.length + '/' + TOTAL + ')');
+    } else {
+        // In grid but not a hidden word — temp highlight
+        highlightTemp(clean);
+        showMsg('✨ "' + clean + '" is in the grid but not one of the ' + TOTAL + ' hidden words!');
+    }
+
+    submittedWords.unshift(clean);
+    if (submittedWords.length > 60) submittedWords = submittedWords.slice(0, 60);
+
+    saveData();
+    updateDisplay();
+
+    // ✅ Reset field and selected cell after every submission
+    const input = document.getElementById('userWord');
+    input.value = '';
+    input.disabled = true;
+    input.placeholder = 'Click a letter first, then type your word...';
+    document.getElementById('inputLabel').textContent = '👆 Click the FIRST letter of your word on the grid, then type it below:';
+    gridCells.forEach(c => c.classList.remove('selected-start'));
+    selectedStartCell = null;
+}
+
+// ── Reset ──
+function resetGame() {
+    if (!confirm('Reset the entire game? All progress will be cleared.')) return;
+    foundWords = [];
+    submittedWords = [];
+    saveData();
+    gridCells.forEach(c => c.classList.remove('found','temp-highlight'));
+    document.querySelectorAll('.hint-tag').forEach(t => t.classList.remove('found-hint'));
+    updateDisplay();
+    updateProgress();
+    showMsg('✨ Game reset! Find all ' + TOTAL + ' hidden words!');
+}
+
+// ── Grid cell click — select first letter ──
+function initGridClick() {
+    gridCells.forEach(cell => {
+        cell.addEventListener('click', function() {
+            if (this.classList.contains('found')) {
+                showMsg('✅ This letter is part of an already found word!');
+                return;
+            }
+            // Clear previous selection
+            gridCells.forEach(c => c.classList.remove('selected-start'));
+            // Mark this cell as selected start
+            this.classList.add('selected-start');
+            selectedStartCell = this;
+
+            const letter = this.textContent;
+            const input = document.getElementById('userWord');
+            input.disabled = false;
+            input.value = '';
+            input.placeholder = 'Start with "' + letter + '" — type your full word...';
+            input.focus();
+
+            document.getElementById('inputLabel').textContent = '✅ Letter "' + letter + '" selected! Now type your full word:';
+            showMsg('💡 "' + letter + '" selected as first letter! Type your word and press Enter or click Find!');
+        });
+    });
+}
+
+// ── Init hint tag clicks ──
+function initHints() {
+    document.querySelectorAll('.hint-tag').forEach(tag => {
+        tag.addEventListener('click', () => {
+            const word = tag.getAttribute('data-word');
+            if (foundWords.includes(word)) {
+                showMsg('✅ "' + word + '" is already found and highlighted green!');
+            } else {
+                highlightTemp(word);
+                showMsg('🔍 "' + word.toUpperCase() + '" is hidden in the grid — find it and type it!');
+            }
+        });
+    });
+}
+
+// ── Event listeners ──
+document.getElementById('submitWord').addEventListener('click', () => {
+    addWord(document.getElementById('userWord').value);
+});
+document.getElementById('userWord').addEventListener('keypress', e => {
+    if (e.key === 'Enter') addWord(document.getElementById('userWord').value);
+});
+document.getElementById('resetGameBtn').addEventListener('click', resetGame);
+
+// ── Start ──
+renderGrid();
+// Wait for DOM to fully render grid cells before loading data
+function startGame() {
+    if (gridCells.length === 144) {
+        loadData();
+        initHints();
+        initGridClick();
+    } else {
+        setTimeout(startGame, 50);
+    }
+}
+setTimeout(startGame, 100);
+</script>
+</body>
+</html>
