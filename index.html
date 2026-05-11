@@ -19,6 +19,7 @@
             align-items: center;
             font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
             padding: 20px;
+            scroll-behavior: smooth;
         }
 
         .game-container {
@@ -151,6 +152,17 @@
             color: #1dbcd1 !important;
             transform: scale(1.02);
             box-shadow: 0 0 20px rgba(255,255,255,0.8);
+        }
+
+        /* Scroll target highlight animation */
+        .scroll-highlight {
+            animation: scrollPulse 0.6s ease 3;
+        }
+
+        @keyframes scrollPulse {
+            0% { background: rgba(255, 255, 255, 0.6); transform: scale(1); }
+            50% { background: #ffffff; transform: scale(1.08); box-shadow: 0 0 25px rgba(255,255,255,0.9); }
+            100% { background: rgba(255, 255, 255, 0.6); transform: scale(1); }
         }
 
         .word-hints {
@@ -462,20 +474,15 @@
 
     // Generate a randomized grid with all words placed in random positions
     function generateRandomGrid() {
-        // Shuffle words for random placement order
         const shuffledWords = shuffleArray([...WORDS_TO_HIDE]);
-        
-        // Create empty grid
         const grid = createEmptyGrid();
         
-        // Place each word in a random position
         for (const word of shuffledWords) {
             let placed = false;
             let attempts = 0;
             const maxAttempts = 500;
             
             while (!placed && attempts < maxAttempts) {
-                // Random direction: 0 = horizontal, 1 = vertical
                 const direction = Math.random() < 0.5 ? 'horizontal' : 'vertical';
                 const maxRow = direction === 'horizontal' ? ROWS : ROWS - word.length;
                 const maxCol = direction === 'horizontal' ? COLS - word.length : COLS;
@@ -490,9 +497,7 @@
                 attempts++;
             }
             
-            // If word couldn't be placed, try again with different approach
             if (!placed) {
-                // Try vertical placement as fallback
                 for (let row = 0; row < ROWS - word.length && !placed; row++) {
                     for (let col = 0; col < COLS && !placed; col++) {
                         if (canPlaceWord(grid, word, row, col, 'vertical')) {
@@ -504,7 +509,6 @@
             }
         }
         
-        // Fill empty cells with random uppercase letters
         const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
         for (let i = 0; i < ROWS; i++) {
             for (let j = 0; j < COLS; j++) {
@@ -546,7 +550,6 @@
         const upperWord = word.toUpperCase();
         const positions = [];
         
-        // Search horizontally
         for (let row = 0; row < ROWS; row++) {
             for (let col = 0; col <= COLS - upperWord.length; col++) {
                 let match = true;
@@ -564,7 +567,6 @@
             }
         }
         
-        // Search vertically
         for (let col = 0; col < COLS; col++) {
             for (let row = 0; row <= ROWS - upperWord.length; row++) {
                 let match = true;
@@ -585,8 +587,35 @@
         return positions;
     }
 
-    // Highlight a word temporarily
-    function highlightWordTemporary(word) {
+    // NEW: Scroll to the first letter of the found word
+    function scrollToWord(word) {
+        const positions = findWordPositions(word);
+        if (positions.length > 0) {
+            const firstPos = positions[0];
+            const index = firstPos.row * COLS + firstPos.col;
+            const targetCell = gridCells[index];
+            
+            if (targetCell) {
+                // Add scroll highlight animation class
+                targetCell.classList.add('scroll-highlight');
+                
+                // Smooth scroll to the cell
+                targetCell.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                    inline: 'center'
+                });
+                
+                // Remove animation class after animation ends
+                setTimeout(() => {
+                    targetCell.classList.remove('scroll-highlight');
+                }, 1800);
+            }
+        }
+    }
+
+    // Highlight a word temporarily and scroll to it
+    function highlightWordTemporary(word, shouldScroll = true) {
         gridCells.forEach(cell => {
             if (!cell.classList.contains('found')) {
                 cell.classList.remove('temp-highlight');
@@ -602,6 +631,11 @@
             }
         });
         
+        // Scroll to the word
+        if (shouldScroll) {
+            scrollToWord(word);
+        }
+        
         setTimeout(() => {
             positions.forEach(pos => {
                 const index = pos.row * COLS + pos.col;
@@ -609,7 +643,7 @@
                     gridCells[index].classList.remove('temp-highlight');
                 }
             });
-        }, 2000);
+        }, 2500);
         
         return positions.length > 0;
     }
@@ -657,10 +691,9 @@
         }
     }
 
-    // Load saved data (only found words and submissions, not grid)
     function loadData() {
-        const savedFound = localStorage.getItem('boogie_found_words_v4');
-        const savedSubmitted = localStorage.getItem('boogie_submitted_words_v4');
+        const savedFound = localStorage.getItem('boogie_found_words_v5');
+        const savedSubmitted = localStorage.getItem('boogie_submitted_words_v5');
         
         if (savedFound) {
             foundWords = JSON.parse(savedFound);
@@ -674,7 +707,6 @@
             submittedWords = [];
         }
         
-        // Re-apply permanent highlights for previously found words
         foundWords.forEach(word => {
             const positions = findWordPositions(word);
             positions.forEach(pos => {
@@ -697,33 +729,27 @@
     }
 
     function saveData() {
-        localStorage.setItem('boogie_found_words_v4', JSON.stringify(foundWords));
-        localStorage.setItem('boogie_submitted_words_v4', JSON.stringify(submittedWords));
+        localStorage.setItem('boogie_found_words_v5', JSON.stringify(foundWords));
+        localStorage.setItem('boogie_submitted_words_v5', JSON.stringify(submittedWords));
     }
 
-    // FULL RESET - shuffles everything
     function fullReset() {
-        // Reset all tracking variables
         foundWords = [];
         submittedWords = [];
         
-        // Generate brand new shuffled grid
         initGrid();
         
-        // Clear all highlights from grid
         gridCells.forEach(cell => {
-            cell.classList.remove('found', 'temp-highlight');
+            cell.classList.remove('found', 'temp-highlight', 'scroll-highlight');
         });
         
-        // Reset all hint tags
         const hintTags = document.querySelectorAll('.hint-tag');
         hintTags.forEach(tag => {
             tag.classList.remove('found-hint');
         });
         
-        // Clear localStorage for found words and submissions
-        localStorage.removeItem('boogie_found_words_v4');
-        localStorage.removeItem('boogie_submitted_words_v4');
+        localStorage.removeItem('boogie_found_words_v5');
+        localStorage.removeItem('boogie_submitted_words_v5');
         
         updateDisplay();
         updateProgress();
@@ -754,7 +780,7 @@
             tag.style.fontWeight = count > 3 ? '700' : '500';
             tag.innerHTML = `${word} <span style="opacity:0.6; font-size:0.7rem;">(${count})</span>`;
             tag.addEventListener('click', () => {
-                highlightWordTemporary(word);
+                highlightWordTemporary(word, true);
                 showMessage(`✨ "${word}" highlighted in the grid! ✨`, '#ffffff');
             });
             wordCloudContainer.appendChild(tag);
@@ -797,7 +823,7 @@
             return false;
         }
         
-        highlightWordTemporary(cleanedWord);
+        highlightWordTemporary(cleanedWord, true);
         
         const isHiddenWord = ALL_HIDDEN_WORDS.includes(cleanedWord);
         const alreadyFound = foundWords.includes(cleanedWord);
@@ -831,7 +857,7 @@
                 if (foundWords.includes(word)) {
                     showMessage(`✨ "${word}" was already found! ✨`, '#ffffff');
                 } else {
-                    highlightWordTemporary(word);
+                    highlightWordTemporary(word, true);
                     showMessage(`🔍 "${word.toUpperCase()}" is hidden somewhere in the grid! ✨`, '#ffffff');
                 }
             });
@@ -847,7 +873,6 @@
         });
     }
 
-    // Event listeners
     document.getElementById('submitWord').addEventListener('click', () => {
         const input = document.getElementById('userWord');
         addWord(input.value);
@@ -862,7 +887,6 @@
     
     document.getElementById('resetGameBtn').addEventListener('click', fullReset);
     
-    // Initialize
     function init() {
         initGrid();
         loadData();
